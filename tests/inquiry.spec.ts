@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { syntheticLead, invalidEmails } from './fixtures/test-data';
-import { bodyContains, interceptLeadRequests } from './fixtures/submit-interception';
+import { interceptLeadRequests } from './fixtures/submit-interception';
 import { InquiryPage } from './pages/inquiry-page';
 
 test.describe('Exclusive Resorts inquiry form', () => {
@@ -19,35 +19,48 @@ test.describe('Exclusive Resorts inquiry form', () => {
   });
 
   test('@smoke TC-002 valid inquiry sends one request', async ({ page }) => {
-    test.fixme(true, 'The live custom phone/radio controls reset their form-model state in this headless path; enable after an approved stable interaction or captured contract is available.');
     const interception = await interceptLeadRequests(page);
     const inquiry = new InquiryPage(page);
     await inquiry.goto();
     await inquiry.chooseEmailMethod();
     await inquiry.chooseRequiredConsent();
     await inquiry.fillRequired();
+    await inquiry.waitForEmailValidation();
 
     await expect(inquiry.submit).toBeEnabled();
     await inquiry.submit.click();
 
     const request = await interception.waitForLeadRequest();
     await expect.poll(() => interception.leadRequests.length).toBe(1);
-    expect(bodyContains(request, syntheticLead.email)).toBe(true);
-    expect(bodyContains(request, syntheticLead.firstName)).toBe(true);
+    expect(request.method).toBe('POST');
+    expect(new URL(request.url).pathname).toBe('/submit-form/');
+    const payload = JSON.parse(request.rawBody);
+    expect(payload.form).toBe('SHORT_FORM');
+    const fields = Object.fromEntries(new URLSearchParams(payload.values));
+    expect(fields).toMatchObject({
+      FirstName: syntheticLead.firstName,
+      LastName: syntheticLead.lastName,
+      Email: syntheticLead.email,
+      ZIP: syntheticLead.postalCode,
+      termsAgreement: 'true',
+      preferredContactType: 'Email'
+    });
+    expect(fields.Phone.replace(/\D/g, '')).toBe(syntheticLead.phone.replace(/\D/g, ''));
     await expect(page.getByText(/We appreciate your interest/i)).toBeVisible();
   });
 
   test('@regression BUG-03 rapid double activation does not duplicate the request', async ({ page }) => {
-    test.fail(true, 'BUG-03: the live form currently emits duplicate lead-capable requests on rapid double activation');
-    const interception = await interceptLeadRequests(page);
+    const interception = await interceptLeadRequests(page, 500);
     const inquiry = new InquiryPage(page);
     await inquiry.goto();
     await inquiry.chooseEmailMethod();
     await inquiry.chooseRequiredConsent();
     await inquiry.fillRequired();
+    await inquiry.waitForEmailValidation();
 
     await inquiry.submit.dblclick({ delay: 50 });
     await interception.waitForLeadRequest();
+    await expect(page.getByText(/We appreciate your interest/i)).toBeVisible();
     await expect.poll(() => interception.leadRequests.length).toBe(1);
   });
 
@@ -71,6 +84,7 @@ test.describe('Exclusive Resorts inquiry form', () => {
     await inquiry.goto();
     await inquiry.chooseEmailMethod();
     await inquiry.fillRequired();
+    await inquiry.waitForEmailValidation();
     await expect(inquiry.requiredConsent).not.toBeChecked();
     const submitted = await inquiry.trySubmit();
     if (submitted) {
@@ -108,13 +122,22 @@ test.describe('Exclusive Resorts inquiry form', () => {
     await expect.poll(() => interception.leadRequests.length).toBe(0);
   });
 
-  test('@regression TC-014 name input limits entry to 50 characters', async ({ page }) => {
-    test.fixme(true, 'The current form surfaces the 51-character message only through form-level validation; this headless path cannot reach it while TC-002 is blocked.');
+  test('@regression TC-014 name accepts 50 characters and rejects 51', async ({ page }) => {
+    const interception = await interceptLeadRequests(page);
     const inquiry = new InquiryPage(page);
     await inquiry.goto();
+    await inquiry.chooseEmailAndConsent();
+    await inquiry.fillRequired({ firstName: 'Q'.repeat(50) });
+    await inquiry.waitForEmailValidation();
+    const nameField = page.locator('.formkit-outer').filter({ has: inquiry.firstName });
+    await expect(nameField).toHaveAttribute('data-complete', 'true');
+    await expect(inquiry.firstName).toHaveValue('Q'.repeat(50));
+
     await inquiry.firstName.fill('Q'.repeat(51));
     await inquiry.firstName.blur();
-
-    expect(await inquiry.firstName.inputValue()).toHaveLength(50);
+    await expect(nameField).not.toHaveAttribute('data-complete', 'true');
+    await inquiry.submit.click();
+    await expect(page.getByText('Name* must be less than or equal to 50 characters.', { exact: true })).toBeVisible();
+    expect(interception.leadRequests).toHaveLength(0);
   });
 });
