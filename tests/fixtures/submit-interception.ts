@@ -66,9 +66,10 @@ function parseBody(rawBody: string): Record<string, unknown> | string | null {
  * are updated as requests are observed.
  *
  * @param page Playwright page whose requests should be intercepted.
+ * @param responseDelayMs Simulated submit latency for checking repeated activation while pending.
  * @returns Captured requests and a helper that waits for the first lead request.
  */
-export async function interceptLeadRequests(page: Page): Promise<SubmitInterception> {
+export async function interceptLeadRequests(page: Page, responseDelayMs = 0): Promise<SubmitInterception> {
   const leadRequests: CapturedLeadRequest[] = [];
   const allWriteRequests: string[] = [];
   let resolveFirstRequest: (request: CapturedLeadRequest) => void = () => undefined;
@@ -88,6 +89,13 @@ export async function interceptLeadRequests(page: Page): Promise<SubmitIntercept
     const rawBody = request.postData() ?? '';
     allWriteRequests.push(`${method} ${url}`);
 
+    // Isolate the asynchronous email service; native email validation remains
+    // active in the browser. This response shape is consumed by the live client.
+    if (new URL(url).pathname === '/validate-email/') {
+      await route.fulfill({ status: 200, json: { valid: true } });
+      return;
+    }
+
     if (!isLeadLikeRequest(url, rawBody, method)) {
       await route.continue();
       return;
@@ -103,17 +111,16 @@ export async function interceptLeadRequests(page: Page): Promise<SubmitIntercept
     leadRequests.push(captured);
     resolveFirstRequest(captured);
 
+    if (responseDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, responseDelayMs));
+    }
+
     // Browser EXP-02 captured the live response shape, but this fixture must
     // remain deterministic and must never forward a lead-capable write.
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        success: true,
-        status: 'success',
-        submitted: true,
-        message: 'We appreciate your interest.'
-      })
+      body: JSON.stringify({ data: { id: 'qa-intercepted-lead' } })
     });
   });
 

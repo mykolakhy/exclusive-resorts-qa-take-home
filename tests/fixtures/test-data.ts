@@ -11,7 +11,7 @@ export const syntheticLead: LeadData = {
   lastName: 'Example',
   email: 'qa.candidate+automation@example.com',
   postalCode: '10001',
-  phone: '510000000'
+  phone: '+12025550100'
 };
 
 export const invalidEmails = ['foo.com', 'foo@foo@'] as const;
