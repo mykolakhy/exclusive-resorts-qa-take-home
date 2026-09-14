@@ -40,21 +40,15 @@ export class InquiryPage {
     await this.lastName.fill(data.lastName);
     await this.email.fill(data.email);
     await this.postalCode.fill(data.postalCode);
-    await this.phone.click();
-    await this.phone.pressSequentially(data.phone);
+    await this.phone.fill(data.phone);
     await this.phone.press('Tab');
     await expect(this.phone).toHaveValue(/\d/);
   }
 
   async chooseEmailMethod(): Promise<void> {
-    // The site keeps the native radio out of the visual control's viewport.
-    // Update the semantic control and dispatch the event its Vue model listens for.
-    await this.emailMethod.evaluate((element) => {
-      const input = element as HTMLInputElement;
-      input.checked = true;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    // The native radio is visually hidden; trigger its native click so the
+    // component's Vue model receives the click/input/change sequence.
+    await this.emailMethod.evaluate((element) => (element as HTMLInputElement).click());
     await expect(this.emailMethod).toBeChecked();
   }
 
@@ -65,12 +59,7 @@ export class InquiryPage {
 
   async chooseRequiredConsent(): Promise<void> {
     // This custom checkbox also places the native input outside the viewport.
-    await this.requiredConsent.evaluate((element) => {
-      const input = element as HTMLInputElement;
-      input.checked = true;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    await this.requiredConsent.evaluate((element) => (element as HTMLInputElement).click());
     await expect(this.requiredConsent).toBeChecked();
   }
 
