@@ -1,0 +1,25 @@
+# Dependencies and generated test output
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+coverage/
+newman/
+
+# Local configuration and authentication state
+.env
+.env.*
+!.env.example
+.auth/
+playwright/.auth/
+*.log
+
+# Unreviewed captures may contain cookies, tokens or contact details
+docs/evidence/raw/
+*.har
+tmp/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
