@@ -38,10 +38,9 @@ The cases below are the stage 3 design baseline. Values marked `SYN-01` are synt
 ## Execution notes
 
 - TC-002, TC-003, TC-005, TC-006 and TC-009 must intercept the submit request before any interaction and assert request count.
-- TC-002 must verify the exact payload against the redacted contract documented in EXP-02 when its stable headless interaction path is restored; the live endpoint is not called by Playwright.
-- The TC-002 implementation is currently marked `fixme`: the live custom phone/radio controls reset their form-model state in headless interaction despite native values being set. The isolated request interception remains implemented and is exercised by BUG-03; re-enable TC-002 when a stable interaction path is available, using the redacted EXP-02 contract.
-- TC-014 remains a manual regression check until the form-level 51-character validation can be reached through the same stable successful-submit path.
-- A separate `@regression` check is intentionally marked expected-failing for BUG-03: it double-activates Submit and asserts one request. This keeps the product defect visible without weakening the passing valid-submit check.
+- TC-002 is active and verifies the endpoint, method, SHORT_FORM wrapper, decoded field values, consent, one request and the success UI against EXP-02. Submit is intercepted.
+- TC-014 is active: 50 characters produce a complete field; 51 characters produce the stated validation error and no submit request.
+- The BUG-03 regression check is an ordinary passing test. It double-clicks Submit with a delayed stub response, waits for success and checks for one submit request.
 - BUG-01 and BUG-02 should remain visible as expected failing regression checks or manual findings until fixed; do not weaken assertions to make them pass.
 - The candidate-controlled baseline submission is evidence for visible success behavior only. EXP-02 supplies browser-level contract evidence from synthetic data, but neither run substitutes for CRM verification.
 - TC-016 is intentionally guarded by target isolation. EXP-05 is the single browser-level negative check: `Phone=123` received `200 OK`, so the case currently fails as BUG-04; do not convert this evidence into repeated live API traffic.

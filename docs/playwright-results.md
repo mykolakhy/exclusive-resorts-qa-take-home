@@ -2,40 +2,38 @@
 
 ## Run summary
 
-Date: 2026-09-13
-
-Commands executed:
+Date: 2026-09-15. Local Chromium and WebKit.
 
 ```text
 npm run typecheck
 npx playwright test
+npx playwright test --grep TC-002 --repeat-each=3 --workers=1
 ```
-
-The type check completed successfully. The Playwright run completed with exit code 0 in Chromium and WebKit:
 
 | Result | Count | Notes |
 | --- | ---: | --- |
-| Passed | 12 | TC-001, TC-003, TC-005, TC-009 and TC-011 across both browsers. |
-| Expected failure | 2 | BUG-03 in Chromium and WebKit. The assertion expects one request after rapid double activation; the intercepted result is two. `test.fail` keeps the defect visible without failing the suite. |
-| Skipped (`fixme`) | 4 | TC-002 and TC-014 in both browsers; reasons below. |
+| Passed | 18 | All nine scenarios in both browsers. |
+| Expected failure | 0 | The double-activation check now passes normally. |
+| Skipped | 0 | TC-002 and TC-014 are active. |
+| Additional TC-002 repeats | 6 | Three successful runs per browser, without retries. |
 
-## Suite design and safety
+## Valid-submit repair
 
-- Every test that can activate Submit installs request interception before page interaction.
-- Interception captures lead-like write requests and returns a deterministic stub response; it never forwards a lead-capable write request to the real environment.
-- Test data is synthetic. No candidate-controlled contact details, cookies or tokens are stored in the suite or reports.
-- Chromium and WebKit are configured in [playwright.config.ts](../playwright.config.ts). HTML reports, traces, screenshots and video-on-failure are generated locally and ignored by Git.
+The previous TC-002 skip was an automation defect. Server-rendered fields were visible before Nuxt hydration attached their handlers. The test could fill native inputs before the form model was ready. It now waits for hydration without mutating application state.
 
-## Known execution limits
+The email field also has asynchronous validation. Tests with otherwise valid data now wait for FormKit's `data-complete="true"` attribute before Submit. The email-validation service is stubbed with `{ "valid": true }`, the shape consumed by the deployed client; native malformed-email validation remains active. This suite does not test the email-validation service itself.
 
-### TC-002 valid submit
+The previous submit stub returned invented success flags. It now returns HTTP 200 with `{ "data": { "id": "qa-intercepted-lead" } }`, matching the response shape recorded in EXP-02. The identifier is synthetic.
 
-The test and interception are implemented but marked `fixme`. In headless Chromium and WebKit, the form's custom phone/radio controls reset their Vue form-model state after native values are set, despite the native elements reflecting those values. The controlled manual LIVE-01 submission succeeded through the visible UI, and the redacted browser contract is documented in EXP-02, so this remains an automation limitation rather than a product defect. Re-enable TC-002 once a stable interaction path is available.
+TC-002 checks the POST method, `/submit-form/` endpoint, `SHORT_FORM` wrapper, decoded field values, consent, contact method, normalized phone, one submit request and the visible success message. The payload contains URL-encoded fields nested inside JSON, so those fields are decoded before exact assertions. The phone fixture uses an explicit international test number to avoid dependence on the browser's default country.
 
-### TC-014 name boundary
+## Other regression results
 
-The test is marked `fixme` because the explicit 51-character message is only reachable through the same form-level validation path blocked by TC-002. Manual exploratory evidence remains the source for this boundary behavior.
+- TC-014 now verifies that 50 name characters are accepted and 51 produce the stated validation error without a submit request. The earlier test incorrectly assumed that the input must truncate the value to 50.
+- BUG-03 is not reproduced with the corrected setup: double activation emits one submit request in both browsers, including with a 500 ms simulated response delay. The test waits for the success UI before checking the count. The historical report is retained with a recheck note; no server-side fix or idempotency behavior is inferred.
 
-### BUG-03 duplicate request risk
+## Scope
 
-The regression test intentionally double-activates Submit with synthetic data and expects one intercepted lead-capable request. It observes two in both browsers. This is documented in [the bug report](bug-report.md#bug-03--rapid-double-activation-emits-duplicate-lead-capable-requests). Backend idempotency and CRM delivery remain unverified.
+Submit-capable tests install interception before interacting with the page. Submit responses and the email-validation service are mocked. No real lead submission is forwarded by these checks, and success here does not establish backend acceptance or CRM delivery. Other unrelated requests can continue to the network.
+
+HTML reports, traces, screenshots and videos are generated locally and ignored by Git. These results were verified locally; GitHub CI has not yet run this revision.

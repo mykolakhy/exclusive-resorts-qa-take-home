@@ -115,7 +115,7 @@ This verifies the visible success flow for the candidate-controlled baseline. Th
 
 ## Stage 4 intercepted double-activation check
 
-The Playwright suite used synthetic data and installed interception before interacting with the form. A rapid double activation of Submit produced two lead-capable requests in the isolated interception layer. This confirms a client-side duplicate-request risk without sending a second real lead. BUG-03 records the finding; whether the backend deduplicates the requests remains unverified.
+The Playwright suite used synthetic data and installed interception before interacting with the form. A rapid double activation of Submit produced two lead-capable requests in the isolated interception layer. This was recorded as a client-side duplicate-request risk without sending a second real lead. Recheck on 2026-09-15: the corrected automated test observes exactly one submit request in Chromium and WebKit, including with a delayed response; the historical result is not reproduced. BUG-03 records the finding; whether the backend deduplicates the requests remains unverified.
 
 ## Mobile inspection
 

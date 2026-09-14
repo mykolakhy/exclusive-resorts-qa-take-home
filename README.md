@@ -69,7 +69,7 @@ The Postman collection uses the same principle at the contract level. `postman/e
 | Area | Result |
 | --- | --- |
 | TypeScript | `npm run typecheck` passes. |
-| Playwright | 12 ordinary checks pass in Chromium and WebKit; BUG-03 is visible as 2 expected failures; 4 cases are documented `fixme` checks. |
+| Playwright | 18 checks pass in Chromium and WebKit, including valid submit, double activation and the 50/51-character boundary. No skipped or expected-failing tests. |
 | Browser Network capture | Controlled synthetic checks recorded `POST /submit-form/`, `200 OK`, the redacted body shape and `{data:{id:<redacted>}}`; EXP-05 also showed malformed `Phone=123` receives `200 OK`. CRM delivery remains unverified. |
 | Newman | Safety run exits successfully with 6 guards, 0 HTTP requests and 0 failures. This is not API behavior evidence. |
 | CI | GitHub Actions workflow installs dependencies and browsers, runs typecheck and Playwright, and uploads reports and failure artifacts. |
@@ -78,14 +78,14 @@ See the [Playwright execution record](docs/playwright-results.md), [Postman resu
 
 ## Findings and limitations
 
-The confirmed findings are documented in the [bug report](docs/bug-report.md):
+The findings and their current status are documented in the [bug report](docs/bug-report.md):
 
 - **BUG-01:** conditional contact-preference dropdowns cannot be operated with the keyboard.
 - **BUG-02:** the phone input is not programmatically associated with its label or validation error.
-- **BUG-03:** rapid double activation emits two lead-capable requests at the UI/request layer.
+- **BUG-03 (not reproduced on recheck):** the corrected regression test observes one submit request after double activation in both browsers, including while the response is delayed.
 - **BUG-04:** the submit endpoint accepts the client-invalid phone value `123` with `200 OK`.
 
-The visible success flow was executed once with candidate-provided data and twice with synthetic UI submissions. Native Chrome DevTools captured the browser-level endpoint, payload shape, status and response shape; [EXP-02](docs/evidence/EXP-02-network-capture.md) records the baseline capture, [EXP-04](docs/evidence/EXP-04-backend-phone-acceptance.md) records valid-phone acceptance, and [EXP-05](docs/evidence/EXP-05-backend-invalid-phone-acceptance.md) records `Phone=123` also receiving `200 OK` through a direct synthetic request. The repository does not claim CRM delivery, downstream notifications or broad server-side validation coverage. TC-002 and TC-014 remain `fixme` because the live custom phone/radio controls do not have a stable headless interaction path for those assertions; the reasons and evidence are recorded in the [execution record](docs/playwright-results.md).
+The visible success flow was executed once with candidate-provided data and twice with synthetic UI submissions. Native Chrome DevTools captured the browser-level endpoint, payload shape, status and response shape; [EXP-02](docs/evidence/EXP-02-network-capture.md) records the baseline capture, [EXP-04](docs/evidence/EXP-04-backend-phone-acceptance.md) records valid-phone acceptance, and [EXP-05](docs/evidence/EXP-05-backend-invalid-phone-acceptance.md) records `Phone=123` also receiving `200 OK` through a direct synthetic request. The repository does not claim CRM delivery, downstream notifications or broad server-side validation coverage. TC-002 and TC-014 are active and passing. Tests wait for hydration and asynchronous email validation; the submit mock uses the EXP-02 response shape. See the [execution record](docs/playwright-results.md).
 
 Load testing, repeated live submissions, stored-XSS verification, real-device coverage, spoken screen-reader output and downstream CRM/email/SMS delivery are outside this assessment's verified scope.
 
@@ -104,7 +104,6 @@ Load testing, repeated live submissions, stored-XSS verification, real-device co
 ## Further improvements
 
 1. Validate the captured contract in an approved isolated environment and enable the guarded Postman scenarios there.
-2. Stabilize interaction with the custom phone and contact-method controls, then enable TC-002 and TC-014.
-3. Re-test BUG-03 after a submission lock or idempotency fix and verify the server/CRM side with a safe test lead.
-4. Add screen-reader and real-device checks after the label/error semantics are corrected.
-5. Add a separate, explicitly authorized performance suite against a non-production target; do not use repeated live lead submissions for it.
+2. Verify backend idempotency and CRM delivery in an isolated environment; the passing double-activation UI test does not establish server-side behavior.
+3. Add screen-reader and real-device checks after the label/error semantics are corrected.
+4. Add a separate, explicitly authorized performance suite against a non-production target; do not use repeated live lead submissions for it.
