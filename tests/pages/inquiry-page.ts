@@ -30,6 +30,14 @@ export class InquiryPage {
 
   async goto(): Promise<void> {
     await this.page.goto('/inquire/');
+    // Server-rendered inputs appear before Nuxt attaches their event handlers.
+    // Wait for hydration before typing so the form model receives the input.
+    await this.page.waitForFunction(() => {
+      const root = document.querySelector('#__nuxt') as HTMLElement & {
+        __vue_app__?: { config: { globalProperties: { $nuxt?: { isHydrating: boolean } } } };
+      };
+      return root?.__vue_app__?.config.globalProperties.$nuxt?.isHydrating === false;
+    });
     await expect(this.firstName).toBeVisible();
     await expect(this.submit).toBeVisible();
   }
@@ -50,6 +58,12 @@ export class InquiryPage {
     // component's Vue model receives the click/input/change sequence.
     await this.emailMethod.evaluate((element) => (element as HTMLInputElement).click());
     await expect(this.emailMethod).toBeChecked();
+  }
+
+  /** Waits until FormKit has committed the email and finished its async validation. */
+  async waitForEmailValidation(): Promise<void> {
+    await expect(this.page.locator('#pardot-short-form .formkit-outer[data-type="email"]'))
+      .toHaveAttribute('data-complete', 'true');
   }
 
   async chooseEmailAndConsent(): Promise<void> {
