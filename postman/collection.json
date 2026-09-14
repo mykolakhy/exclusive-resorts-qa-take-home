@@ -1,0 +1,259 @@
+{
+  "info": {
+    "name": "Exclusive Resorts inquiry API checks",
+    "description": "Safe Postman/Newman templates for the observed inquiry submit contract. Requests remain skipped by default until an isolated target is explicitly approved.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const captured = pm.environment.get('contractCaptured') === 'true';",
+          "const endpoint = pm.variables.replaceIn('{{submitUrl}}');",
+          "if (!captured || !endpoint || endpoint.includes('__CAPTURE')) {",
+          "  console.warn('BLOCKED: set contractCaptured=true only after the captured contract is approved for an isolated target.');",
+          "  pm.execution.skipRequest();",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "submitUrl",
+      "value": "{{baseUrl}}/submit-form/",
+      "type": "string"
+    },
+    {
+      "key": "expectedSuccessStatuses",
+      "value": "200",
+      "type": "string",
+      "description": "Observed browser baseline returned HTTP 200. Keep the assertion configurable for an approved isolated target."
+    }
+  ],
+  "item": [
+    {
+      "name": "Baseline — valid lead (blocked by default)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "{{contentType}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{baselinePayload}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{submitUrl}}",
+            "description": "Observed body is a JSON wrapper whose values member contains a URL-encoded short-form string. Keep contact values synthetic and run only against an approved isolated target."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = (pm.environment.get('expectedSuccessStatuses') || '').split(',').filter(Boolean).map(Number);",
+              "pm.test('configured success status is returned', function () {",
+              "  pm.expect(statuses, 'Configure expectedSuccessStatuses from the captured contract').to.not.be.empty;",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('response exposes the observed lead identifier shape', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.nested.property('data.id');",
+              "});",
+              "pm.test('response is JSON', function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative — missing required field",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "{{contentType}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{missingRequiredPayload}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{submitUrl}}",
+        "description": "Remove one required key from the captured baseline payload. Configure expectedValidationStatuses only after observing the isolated contract."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = (pm.environment.get('expectedValidationStatuses') || '').split(',').filter(Boolean).map(Number);",
+              "pm.test('configured validation status is returned', function () {",
+              "  pm.expect(statuses, 'Configure expectedValidationStatuses from the captured contract').to.not.be.empty;",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative — malformed email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "{{contentType}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{invalidEmailPayload}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{submitUrl}}",
+        "description": "Use the captured baseline body with only the email value replaced by the controlled malformed sample."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = (pm.environment.get('expectedValidationStatuses') || '').split(',').filter(Boolean).map(Number);",
+              "pm.test('malformed email is rejected by the configured contract', function () {",
+              "  pm.expect(statuses, 'Configure expectedValidationStatuses from the captured contract').to.not.be.empty;",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative — required consent absent",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "{{contentType}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{missingConsentPayload}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{submitUrl}}",
+        "description": "Use the captured baseline body with required email/privacy consent removed or set false."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = (pm.environment.get('expectedValidationStatuses') || '').split(',').filter(Boolean).map(Number);",
+              "pm.test('missing consent is rejected by the configured contract', function () {",
+              "  pm.expect(statuses, 'Configure expectedValidationStatuses from the captured contract').to.not.be.empty;",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Boundary — international phone and postal values",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "{{contentType}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{internationalPayload}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{submitUrl}}",
+        "description": "Use the captured baseline shape with approved international phone and postal values. Run only against an isolated target."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = (pm.environment.get('expectedSuccessStatuses') || '').split(',').filter(Boolean).map(Number);",
+              "pm.test('boundary request matches the configured success contract', function () {",
+              "  pm.expect(statuses, 'Configure expectedSuccessStatuses from the captured contract').to.not.be.empty;",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative — unsupported method",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{submitUrl}}",
+        "description": "Run only after the endpoint and its method/error contract are captured; the expected status is intentionally not invented."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = (pm.environment.get('expectedMethodStatuses') || '').split(',').filter(Boolean).map(Number);",
+              "pm.test('unsupported method matches the configured contract', function () {",
+              "  pm.expect(statuses, 'Configure expectedMethodStatuses from the captured contract').to.not.be.empty;",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

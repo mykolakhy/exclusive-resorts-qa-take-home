@@ -1,0 +1,93 @@
+{
+  "id": "exclusive-resorts-stage-environment",
+  "name": "Exclusive Resorts stage — observed contract (guarded)",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "https://public-site.stage.exclusiveresorts.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "submitUrl",
+      "value": "{{baseUrl}}/submit-form/",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "contractCaptured",
+      "value": "false",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "contentType",
+      "value": "application/x-www-form-urlencoded",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "expectedSuccessStatuses",
+      "value": "200",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "expectedValidationStatuses",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "expectedMethodStatuses",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "syntheticEmailEncoded",
+      "value": "qa.automation%40example.invalid",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "syntheticFbid",
+      "value": "00000000-0000-4000-8000-000000000000",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "baselinePayload",
+      "value": "{\n  \"values\": \"Email={{syntheticEmailEncoded}}&Phone=%2B1+202+555+0100&FirstName=QA+Candidate&LastName=Example&ZIP=10001&termsAgreement=true&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "missingRequiredPayload",
+      "value": "{\n  \"values\": \"Phone=%2B1+202+555+0100&FirstName=QA+Candidate&LastName=Example&ZIP=10001&termsAgreement=true&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "invalidEmailPayload",
+      "value": "{\n  \"values\": \"Email=invalid-email&Phone=%2B1+202+555+0100&FirstName=QA+Candidate&LastName=Example&ZIP=10001&termsAgreement=true&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "missingConsentPayload",
+      "value": "{\n  \"values\": \"Email={{syntheticEmailEncoded}}&Phone=%2B1+202+555+0100&FirstName=QA+Candidate&LastName=Example&ZIP=10001&termsAgreement=false&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "internationalPayload",
+      "value": "{\n  \"values\": \"Email={{syntheticEmailEncoded}}&Phone=%2B48+510+000+000&FirstName=QA+Candidate&LastName=Example&ZIP=00-001&termsAgreement=true&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-09-13T00:00:00.000Z",
+  "_postman_exported_using": "Codex"
+}
