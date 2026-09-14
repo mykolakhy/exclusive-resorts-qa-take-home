@@ -36,6 +36,8 @@ Scope: client-side exploratory testing plus one controlled browser-level server-
 
 ### BUG-03 — Rapid double activation emits duplicate lead-capable requests
 
+Recheck, 2026-09-15: not reproduced in Chromium or WebKit after correcting the test setup. The test now waits for hydration and email validation, mocks the documented submit response, delays that response during double activation, and observes exactly one submit request. The historical observation below is retained; it is not a currently confirmed duplicate-submit defect. No backend fix or idempotency behavior is inferred.
+
 | Field | Details |
 | --- | --- |
 | Severity | Medium |
@@ -46,7 +48,7 @@ Scope: client-side exploratory testing plus one controlled browser-level server-
 | Expected | The first activation disables or otherwise guards the submission path; exactly one lead-capable request is emitted. |
 | Actual | Two lead-capable requests were intercepted from the rapid double activation. Backend idempotency and CRM duplication were not tested. |
 | Impact | If the backend is not idempotent, one user action could create duplicate lead processing or follow-up work. |
-| Evidence | Stage 4 Playwright request-count run; regression check is explicitly marked expected-failing as BUG-03. |
+| Evidence | Historical Stage 4 Playwright request-count report. The current regression is passing without an expected-failure annotation; see the recheck above. |
 
 ### BUG-04 — Submit endpoint accepts a malformed phone value
 
