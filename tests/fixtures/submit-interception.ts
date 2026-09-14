@@ -18,7 +18,12 @@ const writeMethods = new Set(['POST', 'PUT', 'PATCH']);
 
 function isLeadLikeRequest(url: string, rawBody: string, method: string): boolean {
   if (!writeMethods.has(method)) return false;
-  const signal = `${url} ${rawBody}`.toLowerCase();
+  const pathname = new URL(url).pathname.toLowerCase();
+  // The form performs a separate email-validation POST. It is not a lead
+  // submission and must not make negative tests look like they sent a lead.
+  if (pathname.includes('/validate-email')) return false;
+
+  const signal = `${pathname} ${rawBody}`.toLowerCase();
   return /inquir|lead|contact|form|email|telephone|phone|postal|firstname|lastname|consent|preferred/.test(signal);
 }
 
