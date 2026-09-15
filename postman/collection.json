@@ -10,11 +10,42 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "const captured = pm.environment.get('contractCaptured') === 'true';",
-          "const endpoint = pm.variables.replaceIn('{{submitUrl}}');",
-          "if (!captured || !endpoint || endpoint.includes('__CAPTURE')) {",
-          "  console.warn('BLOCKED: set contractCaptured=true only after the captured contract is approved for an isolated target.');",
+          "if (pm.environment.get('contractCaptured') !== 'true') {",
+          "  console.warn('BLOCKED: collection disabled; no HTTP request was sent.');",
           "  pm.execution.skipRequest();",
+          "} else {",
+          "  try {",
+          "    const expand = (text) => {",
+          "      for (let i = 0; i < 5 && text.includes('{{'); i++) text = pm.variables.replaceIn(text);",
+          "      if (/{{|}}/.test(text)) throw new Error('Unresolved variable in request');",
+          "      return text;",
+          "    };",
+          "    const endpoint = expand(pm.request.url.toString());",
+          "    const match = endpoint.match(/^(https?:\\/\\/[a-z0-9.-]+(?::[0-9]+)?)\\/submit-form\\/$/i);",
+          "    const approvedOrigin = pm.environment.get('isolatedTargetOrigin');",
+          "    if (!match || match[1] !== approvedOrigin) throw new Error('Set isolatedTargetOrigin to the exact approved isolated origin');",
+          "    if (/^https?:\\/\\/public-site\\.stage\\.exclusiveresorts\\.com(?::[0-9]+)?$/i.test(match[1])) {",
+          "      throw new Error('The captured shared stage target is blocked; use an isolated target');",
+          "    }",
+          "    const negative = pm.info.requestName.startsWith('Negative');",
+          "    const statusKey = pm.request.method === 'GET' ? 'expectedMethodStatuses' : negative ? 'expectedValidationStatuses' : 'expectedSuccessStatuses';",
+          "    const configured = pm.environment.get(statusKey) || '';",
+          "    const statuses = configured.split(',').map((s) => Number(s.trim()));",
+          "    if (!configured.trim() || statuses.some((s) => !Number.isInteger(s) || (negative ? s < 400 || s >= 500 : s < 200 || s >= 300))) {",
+          "      throw new Error('Configure ' + statusKey + ' with ' + (negative ? '4xx rejection' : '2xx success') + ' statuses before sending');",
+          "    }",
+          "    pm.variables.set('assertionStatuses', JSON.stringify(statuses));",
+          "    pm.request.url.update(endpoint);",
+          "    if (pm.request.body && pm.request.body.mode === 'raw') {",
+          "      const raw = expand(pm.request.body.raw);",
+          "      const body = JSON.parse(raw);",
+          "      if (body.form !== 'SHORT_FORM' || typeof body.values !== 'string') throw new Error('Expected SHORT_FORM JSON wrapper with encoded values');",
+          "      pm.request.body.update(raw);",
+          "    }",
+          "  } catch (error) {",
+          "    pm.test('request configuration is valid', () => { throw error; });",
+          "    pm.execution.skipRequest();",
+          "  }",
           "}"
         ]
       }
@@ -25,12 +56,6 @@
       "key": "submitUrl",
       "value": "{{baseUrl}}/submit-form/",
       "type": "string"
-    },
-    {
-      "key": "expectedSuccessStatuses",
-      "value": "200",
-      "type": "string",
-      "description": "Observed browser baseline returned HTTP 200. Keep the assertion configurable for an approved isolated target."
     }
   ],
   "item": [
@@ -54,7 +79,7 @@
           }
         },
         "url": "{{submitUrl}}",
-            "description": "Observed body is a JSON wrapper whose values member contains a URL-encoded short-form string. Keep contact values synthetic and run only against an approved isolated target."
+        "description": "Observed body is a JSON wrapper whose values member contains a URL-encoded short-form string. Keep contact values synthetic and run only against an approved isolated target."
       },
       "event": [
         {
@@ -62,17 +87,16 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const statuses = (pm.environment.get('expectedSuccessStatuses') || '').split(',').filter(Boolean).map(Number);",
-              "pm.test('configured success status is returned', function () {",
-              "  pm.expect(statuses, 'Configure expectedSuccessStatuses from the captured contract').to.not.be.empty;",
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
               "  pm.expect(statuses).to.include(pm.response.code);",
               "});",
-              "pm.test('response exposes the observed lead identifier shape', function () {",
+              "pm.test('success is JSON with a non-empty lead identifier', () => {",
+              "  pm.expect(pm.response.headers.get('Content-Type') || '').to.match(/application\\/json/i);",
               "  const body = pm.response.json();",
               "  pm.expect(body).to.have.nested.property('data.id');",
-              "});",
-              "pm.test('response is JSON', function () {",
-              "  pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+              "  pm.expect(['string', 'number']).to.include(typeof body.data.id);",
+              "  pm.expect(String(body.data.id).trim()).not.to.equal('');",
               "});"
             ]
           }
@@ -107,10 +131,15 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const statuses = (pm.environment.get('expectedValidationStatuses') || '').split(',').filter(Boolean).map(Number);",
-              "pm.test('configured validation status is returned', function () {",
-              "  pm.expect(statuses, 'Configure expectedValidationStatuses from the captured contract').to.not.be.empty;",
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
               "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('invalid request is rejected without a lead identifier', () => {",
+              "  pm.expect(pm.response.code).to.be.within(400, 499);",
+              "  if (/json/i.test(pm.response.headers.get('Content-Type') || '')) {",
+              "    pm.expect(pm.response.json()).not.to.have.nested.property('data.id');",
+              "  }",
               "});"
             ]
           }
@@ -145,10 +174,58 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const statuses = (pm.environment.get('expectedValidationStatuses') || '').split(',').filter(Boolean).map(Number);",
-              "pm.test('malformed email is rejected by the configured contract', function () {",
-              "  pm.expect(statuses, 'Configure expectedValidationStatuses from the captured contract').to.not.be.empty;",
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
               "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('invalid request is rejected without a lead identifier', () => {",
+              "  pm.expect(pm.response.code).to.be.within(400, 499);",
+              "  if (/json/i.test(pm.response.headers.get('Content-Type') || '')) {",
+              "    pm.expect(pm.response.json()).not.to.have.nested.property('data.id');",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative — incomplete phone",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "{{contentType}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{invalidPhonePayload}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{submitUrl}}",
+        "description": "Use Phone=123 with otherwise valid synthetic data. A 2xx response is a failure (BUG-04), not an accepted validation status."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
+              "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('invalid request is rejected without a lead identifier', () => {",
+              "  pm.expect(pm.response.code).to.be.within(400, 499);",
+              "  if (/json/i.test(pm.response.headers.get('Content-Type') || '')) {",
+              "    pm.expect(pm.response.json()).not.to.have.nested.property('data.id');",
+              "  }",
               "});"
             ]
           }
@@ -183,10 +260,15 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const statuses = (pm.environment.get('expectedValidationStatuses') || '').split(',').filter(Boolean).map(Number);",
-              "pm.test('missing consent is rejected by the configured contract', function () {",
-              "  pm.expect(statuses, 'Configure expectedValidationStatuses from the captured contract').to.not.be.empty;",
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
               "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('invalid request is rejected without a lead identifier', () => {",
+              "  pm.expect(pm.response.code).to.be.within(400, 499);",
+              "  if (/json/i.test(pm.response.headers.get('Content-Type') || '')) {",
+              "    pm.expect(pm.response.json()).not.to.have.nested.property('data.id');",
+              "  }",
               "});"
             ]
           }
@@ -221,10 +303,16 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const statuses = (pm.environment.get('expectedSuccessStatuses') || '').split(',').filter(Boolean).map(Number);",
-              "pm.test('boundary request matches the configured success contract', function () {",
-              "  pm.expect(statuses, 'Configure expectedSuccessStatuses from the captured contract').to.not.be.empty;",
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
               "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('success is JSON with a non-empty lead identifier', () => {",
+              "  pm.expect(pm.response.headers.get('Content-Type') || '').to.match(/application\\/json/i);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body).to.have.nested.property('data.id');",
+              "  pm.expect(['string', 'number']).to.include(typeof body.data.id);",
+              "  pm.expect(String(body.data.id).trim()).not.to.equal('');",
               "});"
             ]
           }
@@ -245,10 +333,15 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const statuses = (pm.environment.get('expectedMethodStatuses') || '').split(',').filter(Boolean).map(Number);",
-              "pm.test('unsupported method matches the configured contract', function () {",
-              "  pm.expect(statuses, 'Configure expectedMethodStatuses from the captured contract').to.not.be.empty;",
+              "const statuses = JSON.parse(pm.variables.get('assertionStatuses'));",
+              "pm.test('response status matches the configured contract', () => {",
               "  pm.expect(statuses).to.include(pm.response.code);",
+              "});",
+              "pm.test('invalid request is rejected without a lead identifier', () => {",
+              "  pm.expect(pm.response.code).to.be.within(400, 499);",
+              "  if (/json/i.test(pm.response.headers.get('Content-Type') || '')) {",
+              "    pm.expect(pm.response.json()).not.to.have.nested.property('data.id');",
+              "  }",
               "});"
             ]
           }
