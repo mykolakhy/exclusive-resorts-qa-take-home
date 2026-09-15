@@ -52,6 +52,8 @@ Recheck, 2026-09-15: not reproduced in Chromium or WebKit after correcting the t
 
 ### BUG-04 — Submit endpoint accepts a malformed phone value
 
+Automation recheck, 2026-09-15: TC-011 reproduces the same malformed-phone issue through the UI in Chromium and WebKit. With all other fields valid and the phone error visible, an ordinary Submit click emits `POST /submit-form/` with `Phone=123`. The request is intercepted, so this adds client-side evidence to EXP-05 without another live submission. Only the final no-submit assertion is marked expected-failing; setup and visible-error assertions must pass normally.
+
 | Field | Details |
 | --- | --- |
 | Severity | High |
