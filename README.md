@@ -48,6 +48,9 @@ npm run test:list
 
 # Guarded Postman/Newman collection
 npm run postman:check
+
+# Verify collection transport/assertions against a local stub
+npm run postman:test
 ```
 
 `BASE_URL` can be overridden for an approved isolated target:
@@ -62,16 +65,16 @@ The Playwright configuration generates an HTML report in `playwright-report/`. F
 
 The request-interception fixture is installed before form interaction. It identifies lead-capable `POST`, `PUT` and `PATCH` requests, records the request for assertions, and returns a deterministic stub response instead of forwarding the write. This allows request-count and payload checks without creating CRM leads.
 
-The Postman collection uses the same principle at the contract level. `postman/environment.json` contains the redacted endpoint and body shape captured in native Chrome, but starts with `contractCaptured=false`, so Newman skips every request. It becomes runnable only after the contract is approved for an isolated environment and any required session setup is provided separately. Keep all payload examples synthetic.
+The Postman collection uses the same principle at the contract level. `postman/environment.json` contains the redacted endpoint and body shape captured in native Chrome, but starts with `contractCaptured=false`, so Newman skips every request. Enabled runs require an explicit isolated target origin and configured expected statuses; the captured shared stage target remains blocked. See [Postman instructions](postman/README.md). Keep all payload examples synthetic.
 
 ## Current results
 
 | Area | Result |
 | --- | --- |
 | TypeScript | `npm run typecheck` passes. |
-| Playwright | 18 checks pass in Chromium and WebKit, including valid submit, double activation and the 50/51-character boundary. No skipped or expected-failing tests. |
+| Playwright | 22 ordinary checks pass; 2 expected failures reproduce BUG-04 (one per browser). No skipped tests. Playwright reports 24 passed because it includes expected failures. |
 | Browser Network capture | Controlled synthetic checks recorded `POST /submit-form/`, `200 OK`, the redacted body shape and `{data:{id:<redacted>}}`; EXP-05 also showed malformed `Phone=123` receives `200 OK`. CRM delivery remains unverified. |
-| Newman | Safety run exits successfully with 6 guards, 0 HTTP requests and 0 failures. This is not API behavior evidence. |
+| Newman | Default run: 7 guards, 0 HTTP requests. Local stub run: 7 requests and 14 response assertions, plus guard and broken-response checks. This is collection validation, not company API evidence. |
 | CI | GitHub Actions workflow installs dependencies and browsers, runs typecheck and Playwright, and uploads reports and failure artifacts. |
 
 See the [Playwright execution record](docs/playwright-results.md), [Postman result record](docs/postman-results.md) and [CI result record](docs/ci-results.md) for details.
@@ -83,7 +86,7 @@ The findings and their current status are documented in the [bug report](docs/bu
 - **BUG-01:** conditional contact-preference dropdowns cannot be operated with the keyboard.
 - **BUG-02:** the phone input is not programmatically associated with its label or validation error.
 - **BUG-03 (not reproduced on recheck):** the corrected regression test observes one submit request after double activation in both browsers, including while the response is delayed.
-- **BUG-04:** the submit endpoint accepts the client-invalid phone value `123` with `200 OK`.
+- **BUG-04:** the submit endpoint accepts the client-invalid phone value `123` with `200 OK`; the automated UI recheck also emits that value despite the visible error.
 
 The visible success flow was executed once with candidate-provided data and twice with synthetic UI submissions. Native Chrome DevTools captured the browser-level endpoint, payload shape, status and response shape; [EXP-02](docs/evidence/EXP-02-network-capture.md) records the baseline capture, [EXP-04](docs/evidence/EXP-04-backend-phone-acceptance.md) records valid-phone acceptance, and [EXP-05](docs/evidence/EXP-05-backend-invalid-phone-acceptance.md) records `Phone=123` also receiving `200 OK` through a direct synthetic request. The repository does not claim CRM delivery, downstream notifications or broad server-side validation coverage. TC-002 and TC-014 are active and passing. Tests wait for hydration and asynchronous email validation; the submit mock uses the EXP-02 response shape. See the [execution record](docs/playwright-results.md).
 

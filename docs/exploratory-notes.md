@@ -65,7 +65,7 @@ The required live baseline checkbox was selected only for ATT-05; the SMS opt-in
 
 ## Findings and test-design implications
 
-- Four confirmed findings: keyboard-inoperable preference lists, missing phone-label/error associations, duplicate lead-capable requests on rapid double activation, and backend acceptance of the client-invalid phone value `123` (BUG-04).
+- Current confirmed findings: keyboard-inoperable preference lists, missing phone-label/error associations, and malformed-phone submission/acceptance (BUG-04). The earlier duplicate-request observation (BUG-03) was not reproduced after correcting the test setup. The automated phone recheck adds UI evidence to BUG-04 without another live submission.
 - Additional UX observations: missing specific consent-error text and a placeholder-only last-name label.
 - Treat browser-adapter failures separately from product behavior; use real focus and visual confirmation for keyboard checks.
 - Cover separate first/last-name requirements, the 50-character name boundary, conditional preferences, and independent email/SMS consent states.

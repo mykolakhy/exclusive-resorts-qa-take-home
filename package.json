@@ -10,7 +10,8 @@
     "test:negative": "playwright test --grep @negative",
     "test:list": "playwright test --list",
     "typecheck": "tsc --noEmit",
-    "postman:check": "newman run postman/collection.json -e postman/environment.json"
+    "postman:check": "newman run postman/collection.json -e postman/environment.json",
+    "postman:test": "node scripts/check-postman.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

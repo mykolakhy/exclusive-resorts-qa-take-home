@@ -5,7 +5,7 @@ export type CapturedLeadRequest = {
   url: string;
   headers: Record<string, string>;
   rawBody: string;
-  body: Record<string, unknown> | string | null;
+  body: unknown;
 };
 
 export type SubmitInterception = {
@@ -13,6 +13,8 @@ export type SubmitInterception = {
   allWriteRequests: string[];
   /** Waits for and returns the first captured lead request. */
   waitForLeadRequest: () => Promise<CapturedLeadRequest>;
+  /** Observes a full quiet window; fails immediately if a submit request appears. */
+  expectNoLeadRequests: () => Promise<void>;
 };
 
 const writeMethods = new Set(['POST', 'PUT', 'PATCH']);
@@ -43,26 +45,23 @@ function isLeadLikeRequest(url: string, rawBody: string, method: string): boolea
  * Parses a request body using the formats observed for the inquiry endpoint.
  *
  * @param rawBody Unparsed request body.
- * @returns Parsed JSON, parsed form fields, the original string, or `null`.
+ * @returns Parsed JSON, decoded form fields, or `null` for an empty body.
  */
-function parseBody(rawBody: string): Record<string, unknown> | string | null {
+function parseBody(rawBody: string): unknown {
   if (!rawBody) return null;
   try {
-    return JSON.parse(rawBody) as Record<string, unknown>;
+    return JSON.parse(rawBody);
   } catch {
-    try {
-      return Object.fromEntries(new URLSearchParams(rawBody).entries());
-    } catch {
-      return rawBody;
-    }
+    return Object.fromEntries(new URLSearchParams(rawBody).entries());
   }
 }
 
 /**
  * Intercepts write requests made by the inquiry page.
  *
- * Lead-like requests are captured and fulfilled with a deterministic response;
- * unrelated write requests continue to the network. The returned collections
+ * Submit-endpoint requests are captured and fulfilled with a deterministic response;
+ * email validation is stubbed, and other lead-like writes are blocked.
+ * Unrelated write requests continue to the network. The returned collections
  * are updated as requests are observed.
  *
  * @param page Playwright page whose requests should be intercepted.
@@ -96,7 +95,12 @@ export async function interceptLeadRequests(page: Page, responseDelayMs = 0): Pr
       return;
     }
 
-    if (!isLeadLikeRequest(url, rawBody, method)) {
+    if (new URL(url).pathname !== '/submit-form/') {
+      // Keep the broad heuristic as a safety guard, not as a submit counter.
+      if (isLeadLikeRequest(url, rawBody, method)) {
+        await route.abort('blockedbyclient');
+        return;
+      }
       await route.continue();
       return;
     }
@@ -127,6 +131,20 @@ export async function interceptLeadRequests(page: Page, responseDelayMs = 0): Pr
   return {
     leadRequests,
     allWriteRequests,
+    expectNoLeadRequests: async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        // A zero-count poll succeeds instantly. Observe delayed validation and
+        // submission for one full second instead; this is a bounded assertion.
+        await Promise.race([
+          firstRequest,
+          new Promise<void>((resolve) => { timer = setTimeout(resolve, 1_000); })
+        ]);
+        expect(leadRequests.length, 'No /submit-form/ request during the observation window').toBe(0);
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     waitForLeadRequest: async () => {
       try {
         await expect.poll(() => leadRequests.length, { timeout: 5_000 }).toBeGreaterThan(0);
@@ -136,18 +154,4 @@ export async function interceptLeadRequests(page: Page, responseDelayMs = 0): Pr
       return firstRequest;
     }
   };
-}
-
-/**
- * Checks whether a captured request body contains a value.
- *
- * Both the original body and its parsed representation are searched so the
- * helper works with JSON and URL-encoded payloads.
- *
- * @param request Captured request to inspect.
- * @param value Text to find in the request body.
- * @returns `true` when the value appears in either body representation.
- */
-export function bodyContains(request: CapturedLeadRequest, value: string): boolean {
-  return request.rawBody.includes(value) || JSON.stringify(request.body).includes(value);
 }

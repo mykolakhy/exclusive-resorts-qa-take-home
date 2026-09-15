@@ -21,6 +21,12 @@
       "enabled": true
     },
     {
+      "key": "isolatedTargetOrigin",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
       "key": "contentType",
       "value": "application/x-www-form-urlencoded",
       "type": "default",
@@ -83,6 +89,12 @@
     {
       "key": "internationalPayload",
       "value": "{\n  \"values\": \"Email={{syntheticEmailEncoded}}&Phone=%2B48+510+000+000&FirstName=QA+Candidate&LastName=Example&ZIP=00-001&termsAgreement=true&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "invalidPhonePayload",
+      "value": "{\n  \"values\": \"Email={{syntheticEmailEncoded}}&Phone=123&FirstName=QA+Candidate&LastName=Example&ZIP=10001&termsAgreement=true&FBID={{syntheticFbid}}&GCLID=&msclkid=&C_SFDCLastCampaignID=&C_Page_URL=https%3A%2F%2Fpublic-site.stage.exclusiveresorts.com%2Finquire%2F&smsOptIn=&preferredTime=&preferredDays=&preferredContactType=Email&Braze_Campaign_ID=&Referrer_URL=\",\n  \"form\": \"SHORT_FORM\"\n}",
       "type": "default",
       "enabled": true
     }

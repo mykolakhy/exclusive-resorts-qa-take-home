@@ -48,9 +48,21 @@ export class InquiryPage {
     await this.lastName.fill(data.lastName);
     await this.email.fill(data.email);
     await this.postalCode.fill(data.postalCode);
+    if (data.phone.startsWith('+1')) {
+      // Match the fixture's international prefix before entering the number;
+      // otherwise the selector can replace it with the auto-detected country.
+      await this.page.getByRole('button', { name: 'Country Code Selector' }).click();
+      await this.page.getByRole('option', { name: /^United States/ }).click();
+      await expect(this.page.locator('.vti__selection .vti__flag.us')).toBeVisible();
+    }
     await this.phone.fill(data.phone);
     await this.phone.press('Tab');
-    await expect(this.phone).toHaveValue(/\d/);
+    await expect(this.firstName).toHaveValue(data.firstName);
+    await expect(this.lastName).toHaveValue(data.lastName);
+    await expect(this.email).toHaveValue(data.email);
+    await expect(this.postalCode).toHaveValue(data.postalCode);
+    await expect.poll(async () => (await this.phone.inputValue()).replace(/\D/g, ''))
+      .toBe(data.phone.replace(/\D/g, ''));
   }
 
   async chooseEmailMethod(): Promise<void> {
