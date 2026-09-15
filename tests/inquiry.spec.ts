@@ -31,7 +31,6 @@ test.describe('Exclusive Resorts inquiry form', () => {
     await inquiry.submit.click();
 
     const request = await interception.waitForLeadRequest();
-    await expect.poll(() => interception.leadRequests.length).toBe(1);
     expect(request.method).toBe('POST');
     expect(new URL(request.url).pathname).toBe('/submit-form/');
     const payload = JSON.parse(request.rawBody);
@@ -47,6 +46,7 @@ test.describe('Exclusive Resorts inquiry form', () => {
     });
     expect(fields.Phone.replace(/\D/g, '')).toBe(syntheticLead.phone.replace(/\D/g, ''));
     await expect(page.getByText(/We appreciate your interest/i)).toBeVisible();
+    expect(interception.leadRequests).toHaveLength(1);
   });
 
   test('@regression BUG-03 rapid double activation does not duplicate the request', async ({ page }) => {
@@ -71,11 +71,14 @@ test.describe('Exclusive Resorts inquiry form', () => {
     const submitted = await inquiry.trySubmit();
     if (submitted) {
       await expect(page.getByText(/There was a problem with your submission/i)).toBeVisible();
-      await expect(page.getByText(/This field is required/i).first()).toBeVisible();
+      for (const field of [inquiry.firstName, inquiry.lastName, inquiry.email, inquiry.postalCode]) {
+        await expect(page.locator('.formkit-outer').filter({ has: field })
+          .getByText('This field is required.', { exact: true })).toBeVisible();
+      }
     } else {
       await expect(inquiry.submit).toBeDisabled();
     }
-    await expect.poll(() => interception.leadRequests.length).toBe(0);
+    await interception.expectNoLeadRequests();
   });
 
   test('@negative TC-005 missing required consent blocks submission', async ({ page }) => {
@@ -92,7 +95,7 @@ test.describe('Exclusive Resorts inquiry form', () => {
     } else {
       await expect(inquiry.submit).toBeDisabled();
     }
-    await expect.poll(() => interception.leadRequests.length).toBe(0);
+    await interception.expectNoLeadRequests();
   });
 
   for (const invalidEmail of invalidEmails) {
@@ -105,8 +108,9 @@ test.describe('Exclusive Resorts inquiry form', () => {
       await inquiry.fillRequired({ email: invalidEmail });
       await inquiry.email.blur();
       await inquiry.trySubmit();
+      await expect(page.getByText('Please enter a valid email address.', { exact: true })).toBeVisible();
       expect(await inquiry.email.evaluate((element) => (element as HTMLInputElement).validity.valid)).toBe(false);
-      await expect.poll(() => interception.leadRequests.length).toBe(0);
+      await interception.expectNoLeadRequests();
     });
   }
 
@@ -119,7 +123,23 @@ test.describe('Exclusive Resorts inquiry form', () => {
     await inquiry.phone.press('Tab');
 
     await expect(inquiry.phone).toHaveValue('');
-    await expect.poll(() => interception.leadRequests.length).toBe(0);
+    await interception.expectNoLeadRequests();
+  });
+
+  test('@negative BUG-04 TC-011 incomplete phone blocks submission', async ({ page }) => {
+    const interception = await interceptLeadRequests(page);
+    const inquiry = new InquiryPage(page);
+    await inquiry.goto();
+    await inquiry.chooseEmailAndConsent();
+    await inquiry.fillRequired({ phone: '123' });
+    await inquiry.waitForEmailValidation();
+    await expect(inquiry.phone).toHaveValue('123');
+    await expect(page.getByText('Please enter a valid phone number', { exact: true })).toBeVisible();
+    await inquiry.submit.click();
+    // Only the final rejection assertion is expected to fail: setup and the
+    // visible validation error above must succeed normally.
+    test.fail(true, 'BUG-04: Submit emits Phone=123 despite the visible phone validation error');
+    await interception.expectNoLeadRequests();
   });
 
   test('@regression TC-014 name accepts 50 characters and rejects 51', async ({ page }) => {
@@ -138,6 +158,6 @@ test.describe('Exclusive Resorts inquiry form', () => {
     await expect(nameField).not.toHaveAttribute('data-complete', 'true');
     await inquiry.submit.click();
     await expect(page.getByText('Name* must be less than or equal to 50 characters.', { exact: true })).toBeVisible();
-    expect(interception.leadRequests).toHaveLength(0);
+    await interception.expectNoLeadRequests();
   });
 });
